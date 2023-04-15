@@ -71,7 +71,7 @@ one of [nix-portable], [curl], or [wget].
 # details
 
 The nixphile script first tries to locate a working copy of Nix and second
-deploys `<flake-url>` to `$HOME` as follows.
+deploys `<flake-url>` to `$HOME` as outlined in the following subsections.
 
 The argument `<flake-url>` is passed directly to nix3-build(1); see the manpage
 for details. Usually a flake url takes the form `url#name` where `url` is the

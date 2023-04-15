@@ -1,0 +1,236 @@
+#!/bin/sh
+
+# At this time, the README is the definitive reference; see it for usage.
+
+{ # wrap to avoid execution if incompletely fetched
+
+    if test -n "${DEBUG}"; then
+        set -x
+    fi
+
+    umask 0022
+
+    NIXPHILE_ROOT="${HOME}/.nixphile"
+    NIXPHILE_ENV="${NIXPHILE_ROOT}/env"
+    # temporary location of old env, in case we need to rollback
+    env_old=
+    # for trap
+    success=false
+
+    oops() {
+        echo "${0}:" fatal: "${@}"
+        exit 1
+    }
+
+    # FIXME
+    temp="$(mktemp -d \
+                || oops "unable to create temporary build directory")"
+
+    teardown() {
+        if test "${success}" = false && test -h "${env_old}"; then
+            mv -T "${env_old}" "${NIXPHILE_ENV}" \
+            && stow_env \
+            || echo "${0}: unable to restore env during premature termination"
+        fi
+        rm -rf "${temp}"
+    }
+    trap teardown EXIT INT QUIT TERM
+
+    env_old="${temp}/nixphile-env-old"
+
+    NIX_INSTALLER_URL="https://releases.nixos.org/nix/nix-2.13.3/install"
+    NIX_INSTALLER_SCRIPT="${temp}/install_nix"
+    NIX_INSTALLER_HASH="a90a3dadfe59fcebbafd361d0a0d05474008d82b17337fb94b06a5f1fa29ba32"
+    NIX_PORTABLE_URL="https://github.com/DavHau/nix-portable/releases/download/v009/nix-portable"
+    NIX_PORTABLE_HASH="e371dc77d8cdb4fefacdd2d8abf9b5ce013bb384a2b37def7b96e8dcb0d77790"
+    NIX_PORTABLE_DEFAULT="${NIXPHILE_ROOT}/bin/nix-portable"
+
+    test -d "${HOME}" || oops "you seem to be homeless: HOME=${HOME}"
+
+    NIXPHILE_MODE="${NIXPHILE_MODE:-auto}"
+
+    # TODO poorly documented, check that this works
+    export NIX_INSTALLER_NO_MODIFY_PROFILE=1
+
+    # TODO dynamically substitute or something
+    export LOCALE_ARCHIVE=/nix/store/jbyiz1bkviwd0bvvh3jg7zzgg6gg1yjd-glibc-locales-2.35-224/lib/locale/locale-archive
+
+    command_exists() {
+        # TODO this function is not reliable because apparently dash's command
+        # behaves in a dumb way
+        local p="$(command -v "${1}" 2>/dev/null)"
+        test -f "${p}" && test -x "${p}"
+    }
+
+    require_exec() {
+        command_exists "${1}" || oops "requisite executable missing: ${1}"
+    }
+
+    require_file() {
+        test -f "${1}" || oops "requisite file missing: ${1}"
+    }
+
+    nix() {
+        oops "you haven't bootstrapped nix yet!"
+    }
+
+    locate_nix() {
+        local mode="${1}"
+
+        case "${mode}" in
+            multiuser)
+                if command_exists nix; then
+                    nix() {
+                        command nix \
+                            --extra-experimental-features 'nix-command flakes' \
+                            "${@}"
+                    }
+                elif command_exists "${NIXPHILE_ROOT}/bin/nix"; then
+                    nix() {
+                        "${NIXPHILE_ROOT}/bin/nix" \
+                            --extra-experimental-features 'nix-command flakes' \
+                            "${@}"
+                    }
+                else
+                    return 1
+                fi
+                ;;
+            portable)
+                if command_exists nix-portable; then
+                    nix() { command nix-portable nix "${@}"; }
+                elif command_exists ./nix-portable; then
+                    nix() { ./nix-portable nix "${@}"; }
+                elif command_exists "${NIX_PORTABLE_DEFAULT}"; then
+                    nix() { "${NIX_PORTABLE_DEFAULT}" nix "${@}"; }
+                else
+                    return 1
+                fi
+                ;;
+            auto)
+                locate_nix multiuser || locate_nix portable
+                ;;
+            *)
+                oops "unsupported mode: ${mode}"
+                ;;
+        esac
+    }
+
+    fetch() {
+        local src="${1}"
+        local dst="${2}"
+
+        test -n "${src}" && test -n "${dst}" || oops "fetch: invalid args"
+
+        # TODO fetch should check hashes, but that requires more elaborate
+        # bootstrapping in the case that no nix is found
+
+        {
+            if locate_nix auto; then
+                nix run 'nixpkgs#curl' -- --fail -L --create-dirs \
+                    "${src}" -o "${dst}"
+            elif command_exists curl; then
+                command curl --fail -L --create-dirs \
+                    "${src}" -o "${dst}"
+            elif command_exists wget; then
+                command wget "${src}" -O "${dst}"
+            else
+                oops "failed to find fetch requisite: one of nix, curl, or wget"
+            fi
+        } \
+        && require_file "${dst}" \
+        || oops "failed to fetch: ${src}"
+    }
+
+    install_nix() {
+        local mode="${1}"
+
+        case "${mode}" in
+            multiuser)
+                echo "installing nix in multiuser mode..."
+                fetch "${NIX_INSTALLER_URL}" "${NIX_INSTALLER_SCRIPT}"
+                unset -f nix
+                sh "${NIX_INSTALLER_SCRIPT}" --daemon \
+                && locate_nix multiuser \
+                || oops "nix installer failed"
+                ;;
+            portable|auto)
+                echo "installing nix in portable mode..."
+                fetch "${NIX_PORTABLE_URL}" "${NIX_PORTABLE_DEFAULT}"
+                chmod +x "${NIX_PORTABLE_DEFAULT}" \
+                || oops "failed to make nix-portable executable"
+                unset -f nix
+                locate_nix portable || oops "failed to obtain nix-portable"
+                ;;
+            *)
+                oops "unsupported mode: ${mode}"
+        esac
+
+        echo "nix installation complete"
+    }
+
+    bootstrap_nix() {
+        local mode="${1}"
+
+        echo "bootstrapping nix..."
+
+        locate_nix "${mode}" \
+        && echo "bootstrap complete: located local version of nix" && return
+
+        echo "unable to find local version of nix, attempting install..."
+        install_nix "${mode}"
+        echo "bootstrap complete: installed nix"
+    }
+
+    xstow() {
+        nix run 'nixpkgs#xstow' -- "${@}"
+    }
+
+    xstow_home() {
+        local src="${1}/home"
+        shift
+
+        test -d "${src}" || oops "stow source missing: ${src}"
+
+        xstow -t "${HOME}" -d "${src}" "${@}"
+    }
+
+    unstow_env() {
+        xstow_home "${NIXPHILE_ENV}" -D me || oops "failed to unstow env"
+    }
+
+    stow_env() {
+        xstow_home "${NIXPHILE_ENV}" me || oops "failed to stow env"
+    }
+
+    undeploy() {
+        echo "uninstalling old env..."
+        if test -h "${NIXPHILE_ENV}"; then
+            unstow_env
+            mv -T "${NIXPHILE_ENV}" "${env_old}"
+        fi
+        echo "old env uninstalled"
+    }
+
+    deploy() {
+        local flake_url="${1}"
+
+        undeploy
+
+        test -n "${flake_url}" || return
+
+        echo "building and deploying: ${flake_url} ..."
+
+        nix build "${flake_url}" -o "${NIXPHILE_ENV}" \
+        || oops "failed to build env"
+
+        stow_env
+
+        echo "deployment complete"
+    }
+
+    bootstrap_nix "${NIXPHILE_MODE}"
+    deploy "${1}"
+
+    success=true # for trap
+
+}
