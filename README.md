@@ -117,6 +117,11 @@ package, Wallace will need to use `nix-portable` (which has been installed at
 nix-portable vim
 ```
 
+## TODO
+
+* minimal `flake.nix` example (namely, for people who don't want to use Nix for
+  anything)
+
 # executables
 
 ## install
