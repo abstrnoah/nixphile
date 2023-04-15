@@ -83,19 +83,26 @@ flake url would be something like `.#thinkpad-laptop`.
 
 ## obtaining nix
 
-* If `NIXPHILE_MODE == multiuser`, then try to find `nix` executable in
-  `$PATH` or at `~/.nixphile/bin/nix` (in that order); otherwise try to
-  install `nix` in multiuser mode.
-* If `NIXPHILE_MODE == portable`, then try to find `nix-portable` executable
-  in `$PATH`, at `./nix-portable`, or at `~/.nixphile/bin/nix-portable` (in
-  that order), otherwise try to obtain `nix-portable` and install it to
-  `~/.nixphile/bin/nix-portable`.
-* If `NIXPHILE_MODE == auto` (the default), then: If user is in the `sudo`
-  group, then try `multiuser` mode, else fallback to `portable`.
+* Try finding an existing copy of Nix:
+    * `NIXPHILE_MODE` is `multiuser`: Look for `nix` executable in `$PATH` or at
+      `~/.nixphile/bin/nix` (in that order).
+    * `NIXPHILE_MODE` is `portable`: Look for `nix-portable` executable in
+      `$PATH`, at `./nix-portable`, or at `~/.nixphile/bin/nix-portable` (in
+      that order).
+    * `NIXPHILE_MODE` is `auto` (the default): Look for `nix`, then
+      `nix-portable`.
+* Otherwise try installing Nix:
+    * `multiuser`: Try installing Nix in multi-user (`--daemon`) mode.
+    * `portable` or `auto`: Try fetching nix-portable and installing it to
+      `~/.nixphile/bin/nix-portable`.
 
-In the above steps, "try to install/obtain thing" requires that we fetch the
-thing, which requires at least one of `nix-portable`, `curl`, or `wget` to be
-installed (regardless of `NIXPHILE_MODE`).
+That is, we try to flexibly find an existing copy of Nix, but will only
+_install_ Nix in multi-user mode if you explicitly declare
+`NIXPHILE_MODE=multiuser`.
+
+The install step involves fetching from the internet, which requires at least
+one of `nix-portable`, `curl`, or `wget` to be installed (regardless of
+`NIXPHILE_MODE`).
 
 ## deploying
 
@@ -129,6 +136,7 @@ Wallace now wants to setup a completely new machine named `gromit` that just has
 `curl` installed. Wallace probably wants to run something like
 
 ```sh
+NIXPHILE_MODE=multiuser \
 sh <(curl -L https://raw.githubusercontent.com/abstrnoah/nixphile/main/nixphile) \
     'github:wallace/dotfiles#gromit'
 ```
@@ -137,8 +145,8 @@ This assumes that Wallace has created a Nix derivation named `gromit` in the
 `flake.nix` file, with the implication that `gromit` holds the environment
 intended for the new machine. Namely, any files located at `/home/me` in the
 output of `gromit` will be deployed to Wallace's new `$HOME` directory via
-symlink. If Wallace has `sudo` group then the script will automatically install
-Nix in multiuser mode.
+symlink. Since Wallace declares `multiuser` mode, Nix will be installed as root
+assuming Wallace has sufficient privileges.
 
 On the other hand, if Wallace is given access to a machine where he doesn't have
 root privileges but still wants the comfort of his dotfiles, then he could run
@@ -149,11 +157,12 @@ sh <(curl -L https://raw.githubusercontent.com/abstrnoah/nixphile/main/install) 
 ```
 
 assuming he has in `flake.nix` a derivation named `portable` for just this
-occasion. The script will detect that he doesn't have root privileges on this
-machine and use `nix-portable` instead. To run any applications (e.g. `vim`)
-included in the `portable` package, Wallace will need to use `nix-portable`
-(which has been installed at `~/.nixphile/bin/nix-portable`). Assuming Wallace's
-dotfiles add `~/.nixphile/bin` to `$PATH`, he can run `vim` portably by going
+occasion. Finding no existing version of Nix, the script will fallback to
+obtaining `nix-portable` and proceeding in portable mode. To run any
+applications (e.g. `vim`) included in the `portable` package, Wallace will need
+to use `nix-portable` (which has been installed at
+`~/.nixphile/bin/nix-portable`). Assuming Wallace's dotfiles add
+`~/.nixphile/bin` to `$PATH`, he can run `vim` portably by going
 
 ```sh
 nix-portable vim
