@@ -1,6 +1,6 @@
 # nixphile
 
-A simple Nix-centric dotfiles manager.
+A simple Nix-centric dotfiles deployer.
 
 # another dotfiles manager?!
 
