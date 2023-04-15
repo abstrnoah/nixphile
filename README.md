@@ -52,30 +52,73 @@ The tool should only be used to _deploy_ dotfiles. Version control, editing,
 secrets management, and whatever else the user wants should be handled by other
 tools.
 
-# usage
+# dependencies
 
-This project provides two [executables](#executables) and a
-[Nix library](#nix-library).
+The only real dependency is [nix-portable]; if you can run it then you can run
+`nixphile`. The nix-portable executable is supposed to have essentially zero
+dependencies. But see [the README][nix-portable] for some system requirements.
+Also, nix-portable seems to require [bash]isms.
 
-The [`install`](#install) shell script attempts to be maximally portable and can
-be run as-is in the absence of the rest of this repository.
+In order for the script to automatically install Nix or nix-portable, it needs
+one of [nix-portable], [curl], or [wget].
 
-The [`deploy`](#deploy) shell script also attempts to be portable but does
-require a working version of Nix (which the `install` script can install for
-you).
-
-Both executables can be run as a flake app like
+# synopsis
 
 ```sh
-nix run 'github:abstrnoah/nixphile#EXECUTABLE' ARGS...
+[NIXPHILE_MODE=(multiuser | portable | auto)] ./nixphile [<flake-url>]
 ```
 
-although it is not at all required (and it probably makes more sense to run them
-as native shell scripts anyway).
+# details
 
-See the [next section](#executables) for more about how the executables work.
+The nixphile script first tries to locate a working copy of Nix and second
+deploys `<flake-url>` to `$HOME` as follows.
 
-## example
+The argument `<flake-url>` is passed directly to nix3-build(1); see the manpage
+for details. Usually a flake url takes the form `url#name` where `url` is the
+location of a repository and `name` is the package to be deployed. Often `url`
+will be a GitHub reference like `github:username/dotfiles` and `package` will be
+the dotfiles profile you wish to deploy, like `thinkpad-laptop`. Perhaps the
+most common `url` will be the current directory, just `.`; in that case the full
+flake url would be something like `.#thinkpad-laptop`.
+
+## obtaining nix
+
+* If `NIXPHILE_MODE == multiuser`, then try to find `nix` executable in
+  `$PATH` or at `~/.nixphile/bin/nix` (in that order); otherwise try to
+  install `nix` in multiuser mode.
+* If `NIXPHILE_MODE == portable`, then try to find `nix-portable` executable
+  in `$PATH`, at `./nix-portable`, or at `~/.nixphile/bin/nix-portable` (in
+  that order), otherwise try to obtain `nix-portable` and install it to
+  `~/.nixphile/bin/nix-portable`.
+* If `NIXPHILE_MODE == auto` (the default), then: If user is in the `sudo`
+  group, then try `multiuser` mode, else fallback to `portable`.
+
+In the above steps, "try to install/obtain thing" requires that we fetch the
+thing, which requires at least one of `nix-portable`, `curl`, or `wget` to be
+installed (regardless of `NIXPHILE_MODE`).
+
+## deploying
+
+Invariant: The currently deployed environment is linked at `~/.nixphile/env`. If
+this link exists, then nixphile assumes that `~/.nixphile/env/home/me` is
+deployed to `$HOME`.
+
+If no `<flake-url>` is provided, then just remove the currently deployed
+environment (if there is one) and exit.
+
+Deploying involves the following procedure:
+
+* Remove any existing deployment.
+* Build `<flake-url>`.
+* Link the build's output to `$HOME/.nixphile/env`.
+* Deploy the file tree found at `$HOME/.nixphile/env/home/me` to `$HOME` in
+  basically the same way as GNU Stow[^1].
+
+We try to be atomic insofar as, if something goes wrong, then we attempt to
+replace `$HOME/.nixphile/env` with the previous deployment (if there was one)
+and re-stow it to `$HOME`.
+
+# example
 
 To be more concrete, suppose Wallace (username `wallace`) has a nice dotfiles
 repository at `https://github.com/wallace/dotfiles`. He creates a file named
@@ -86,101 +129,40 @@ Wallace now wants to setup a completely new machine named `gromit` that just has
 `curl` installed. Wallace probably wants to run something like
 
 ```sh
-sh <(curl -L https://raw.githubusercontent.com/abstrnoah/nixphile/main/install) \
-    --nix multiuser --dotfiles https://github.com/wallace/dotfiles ~/.dotfiles \
-    --deploy gromit
+sh <(curl -L https://raw.githubusercontent.com/abstrnoah/nixphile/main/nixphile) \
+    'github:wallace/dotfiles#gromit'
 ```
 
 This assumes that Wallace has created a Nix derivation named `gromit` in the
 `flake.nix` file, with the implication that `gromit` holds the environment
 intended for the new machine. Namely, any files located at `/home/me` in the
 output of `gromit` will be deployed to Wallace's new `$HOME` directory via
-symlink. Since the `muiltiuser` mode is given, Wallace should have root
-privileges on `gromit`.
+symlink. If Wallace has `sudo` group then the script will automatically install
+Nix in multiuser mode.
 
 On the other hand, if Wallace is given access to a machine where he doesn't have
 root privileges but still wants the comfort of his dotfiles, then he could run
 
 ```sh
 sh <(curl -L https://raw.githubusercontent.com/abstrnoah/nixphile/main/install) \
-    --nix portable --dotfiles https://github.com/wallace/dotfiles ~/.dotfiles \
-    --deploy portable
+    'github:wallace/dotfiles#portable'
 ```
 
 assuming he has in `flake.nix` a derivation named `portable` for just this
-occasion. To run any applications (e.g. `vim`) included in the `portable`
-package, Wallace will need to use `nix-portable` (which has been installed at
-`~/.nixphile/bin/nix-portable`). Assuming Wallace's dotfiles add
-`~/.nixphile/bin` to `$PATH`, he can run `vim` portably by going
+occasion. The script will detect that he doesn't have root privileges on this
+machine and use `nix-portable` instead. To run any applications (e.g. `vim`)
+included in the `portable` package, Wallace will need to use `nix-portable`
+(which has been installed at `~/.nixphile/bin/nix-portable`). Assuming Wallace's
+dotfiles add `~/.nixphile/bin` to `$PATH`, he can run `vim` portably by going
 
 ```sh
 nix-portable vim
 ```
 
-## TODO
+TODO: Minimal `flake.nix` example (namely, for people who don't want to use Nix
+for anything).
 
-* minimal `flake.nix` example (namely, for people who don't want to use Nix for
-  anything)
-
-# executables
-
-## install
-```sh
-./install --nix (multiuser | portable) [--dotfiles SRC DEST] [--deploy NAME]
-```
-
-* Dependencies:
-    * At least one of [nix-portable], [curl], or [wget].
-    * nix-portable is supposed to have essentially zero dependencies. However,
-      see [the README][nix-portable] for some system requirements. Also,
-      nix-portable seems to require [bash]isms.
-
-* The `--nix` command is a glorified wrapper around [Nix's install
-  script][nix-download] that additionally wraps the `nix` executable in
-  `nix-portable` if `portable` mode is chosen.
-    * Install `nix-portable`, which is the sole dependency of this project.
-        * Try finding it in `$PATH`, then at `$HOME/.nixphile/bin/nix-portable`,
-          then `./nix-portable`, then try fetching with `curl` or `wget`.
-        * If found somewhere other than `$PATH`, then install to
-          `$HOME/.nixphile/bin/nix-portable`.
-    * If the `multiuser` mode is chosen, then install Nix in multiuser mode
-      (requires sudo).
-    * The `$HOME/.nixphile/bin/nix` executable is installed, pointing either to
-      system-installed Nix or `nix-portable`-wrapped `nix`.
-
-* The optional `--dotfiles` command installs the git repository `SRC` to
-  local path `DEST` using `nix`-wrapped `git`.
-
-* The optional `--deploy` command runs `deploy DEST#NAME` (see below) after
-  the other install jobs.
-
-## deploy
-```sh
-nix run 'github:abstrnoah/nixphile#deploy' [INSTALLABLE]    # as flake app
-./deploy [INSTALLABLE]                                      # natively
-```
-
-* Dependency: `nix`
-    * If you run it as a flake app then obviously you can use whatever Nix you
-      want.
-    * If you run it natively as a shell script, then it will try to find `nix`
-      (first) in `$PATH` or (second) at `$HOME/.nixphile/bin/nix`. The second
-      location is where [install](#install) places Nix.
-
-* For the meaning of `INSTALLABLE`, see nix3-build(1) manpage. Essentially,
-  it's a flake URL to a Nix derivation.
-
-* If `INSTALLABLE` is omitted, then remove an existing deployment; otherwise...
-
-* Remove any existing deployment.
-* Build `INSTALLATION`.
-* Link the output to `$HOME/.nixphile/env`.
-* Deploy the file tree found at `$HOME/.nixphile/env/home/me` to `$HOME`
-  with symlinks in basically the same way as GNU Stow[^1].
-* Try to be atomic so that, if something goes wrong, then the
-  previously-deployed `$HOME/.nixphile/env` is replaced.
-
-# Nix library
+# nix library
 
 Found in the `lib.nix` file; documentation forthcoming (TODO).
 
