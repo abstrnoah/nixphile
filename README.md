@@ -181,6 +181,15 @@ Found in the `lib.nix` file; documentation forthcoming (TODO).
 
 # alternatives
 
+As acknowledged above, there are more dotfiles managers out there than is good
+for the human race. I admit that I have only investigated the following tools in
+earnest; at some point I started just skimming new projects and pretty
+quickly discarding them as either ineffective or overkill (sorry).
+
+* [chezmoi]
+* [home-manager]
+* [stow]
+
 TODO
 
 ---
@@ -205,3 +214,4 @@ documentation
 [nix-download]: https://nixos.org/download.html
 [debian]: https://www.debian.org/
 [home-manager]: https://nix-community.github.io/home-manager/
+[chezmoi]: https://www.chezmoi.io/
