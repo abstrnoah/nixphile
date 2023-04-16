@@ -65,8 +65,8 @@
         # portable solution I could come up with. Just testing `command -v`
         # alone doesn't always work with; e.g. in dash `command -v path` exits 0
         # if path is exists but is not an executable.
-        test -f "${p}" && test -x "${p}" \
-        || command -v "${1}" > /dev/null 2>&1
+        ( test -f "${1}" && test -x "${1}" ) \
+        || ( ! test -f "${1}" ) && command -v "${1}" > /dev/null 2>&1
     }
 
     require_exec() {
