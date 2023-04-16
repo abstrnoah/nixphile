@@ -6,6 +6,8 @@
 # - Add -h|--help options to the executable.
 # - Finish README.
 # - Hash fetched assets if possible.
+# - Improve system detection, namely nix-portable doesn't yet support 32-bit
+#   systems but the script doesn't know how to deal with that.
 
 { # wrap to avoid execution if incompletely fetched
 
