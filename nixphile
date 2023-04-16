@@ -6,8 +6,6 @@
 # - Add -h|--help options to the executable.
 # - Finish README.
 # - Hash fetched assets if possible.
-# - Improve system detection, namely nix-portable doesn't yet support 32-bit
-#   systems but the script doesn't know how to deal with that.
 
 { # wrap to avoid execution if incompletely fetched
 
@@ -71,6 +69,14 @@
         || ( ! test -f "${1}" ) && command -v "${1}" > /dev/null 2>&1
     }
 
+    nix_portable_supported() {
+        case "$(uname -s).$(uname -m)" in
+            # nix-portable is only supported on these systems
+            Linux.x86_64|Linux.aarch64) return 0;;
+            *) return 1;;
+        esac
+    }
+
     require_exec() {
         command_exists "${1}" || oops "requisite executable missing: ${1}"
     }
@@ -79,7 +85,9 @@
         test -f "${1}" || oops "requisite file missing: ${1}"
     }
 
-    nix() { oops "you haven't bootstrapped nix yet!"; }
+    nix() {
+        oops "you haven't bootstrapped nix yet!"
+    }
 
     locate_nix() {
         local mode="${1}"
@@ -102,11 +110,12 @@
                             "${@}"
                     }
                 else
-                    nix() { oops "you haven't bootstrapped nix yet!"; }
                     return 1
                 fi
                 ;;
             portable)
+                nix_portable_supported || return
+
                 if command_exists nix-portable; then
                     nix() { command nix-portable nix "${@}"; }
                 elif command_exists ./nix-portable; then
@@ -114,7 +123,6 @@
                 elif command_exists "${NIX_PORTABLE_DEFAULT}"; then
                     nix() { "${NIX_PORTABLE_DEFAULT}" nix "${@}"; }
                 else
-                    nix() { oops "you haven't bootstrapped nix yet!"; }
                     return 1
                 fi
                 ;;
@@ -122,7 +130,6 @@
                 locate_nix multiuser || locate_nix portable
                 ;;
             *)
-                nix() { oops "you haven't bootstrapped nix yet!"; }
                 oops "unsupported mode: ${mode}"
                 ;;
         esac
@@ -161,17 +168,19 @@
             multiuser)
                 echo "installing nix in multiuser mode..."
                 fetch "${NIX_INSTALLER_URL}" "${NIX_INSTALLER_SCRIPT}"
-                unset -f nix
                 sh "${NIX_INSTALLER_SCRIPT}" --daemon \
                 && locate_nix multiuser \
                 || oops "nix installer failed"
                 ;;
             portable|auto)
+                nix_portable_supported \
+                || oops "system does not support nix-portable," \
+                    "try NIXPHILE_MODE=multiuser (requires sudo)"
+
                 echo "installing nix in portable mode..."
                 fetch "${NIX_PORTABLE_URL}" "${NIX_PORTABLE_DEFAULT}"
                 chmod +x "${NIX_PORTABLE_DEFAULT}" \
                 || oops "failed to make nix-portable executable"
-                unset -f nix
                 locate_nix portable || oops "failed to obtain nix-portable"
                 ;;
             *)
