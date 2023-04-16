@@ -77,12 +77,13 @@
         test -f "${1}" || oops "requisite file missing: ${1}"
     }
 
-    nix() {
-        oops "you haven't bootstrapped nix yet!"
-    }
+    nix() { oops "you haven't bootstrapped nix yet!"; }
 
     locate_nix() {
         local mode="${1}"
+
+        # unset so poor little dumbass 'command -v' doesn't get confused
+        unset -f nix
 
         case "${mode}" in
             multiuser)
@@ -99,6 +100,7 @@
                             "${@}"
                     }
                 else
+                    nix() { oops "you haven't bootstrapped nix yet!"; }
                     return 1
                 fi
                 ;;
@@ -110,6 +112,7 @@
                 elif command_exists "${NIX_PORTABLE_DEFAULT}"; then
                     nix() { "${NIX_PORTABLE_DEFAULT}" nix "${@}"; }
                 else
+                    nix() { oops "you haven't bootstrapped nix yet!"; }
                     return 1
                 fi
                 ;;
@@ -117,6 +120,7 @@
                 locate_nix multiuser || locate_nix portable
                 ;;
             *)
+                nix() { oops "you haven't bootstrapped nix yet!"; }
                 oops "unsupported mode: ${mode}"
                 ;;
         esac
