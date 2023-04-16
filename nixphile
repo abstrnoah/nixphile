@@ -56,10 +56,12 @@
     export LOCALE_ARCHIVE=/nix/store/jbyiz1bkviwd0bvvh3jg7zzgg6gg1yjd-glibc-locales-2.35-224/lib/locale/locale-archive
 
     command_exists() {
-        # TODO this function is not reliable because apparently dash's command
-        # behaves in a dumb way
-        local p="$(command -v "${1}" 2>/dev/null)"
-        test -f "${p}" && test -x "${p}"
+        # I don't know if this is the best way to do this, but it was the most
+        # portable solution I could come up with. Just testing `command -v`
+        # alone doesn't always work with; e.g. in dash `command -v path` exits 0
+        # if path is exists but is not an executable.
+        test -f "${p}" && test -x "${p}" \
+        || command -v "${1}" > /dev/null 2>&1
     }
 
     require_exec() {
