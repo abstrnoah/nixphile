@@ -2,6 +2,11 @@
 
 # At this time, the README is the definitive reference; see it for usage.
 
+# TODO
+# - Add -h|--help options to the executable.
+# - Finish README.
+# - Hash fetched assets if possible.
+
 { # wrap to avoid execution if incompletely fetched
 
     if test -n "${DEBUG}"; then
