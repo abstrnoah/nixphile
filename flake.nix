@@ -14,7 +14,7 @@
     {
       packages = for_all_systems (
         system:
-        {
+        rec {
           nixphile =
             nixpkgs.legacyPackages.${system}.concatTextFile {
               name = "nixphile";
@@ -22,6 +22,8 @@
               executable = true;
               destination = "/bin/nixphile";
             };
+
+          default = nixphile;
         }
       );
     };
