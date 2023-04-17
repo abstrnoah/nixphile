@@ -211,8 +211,6 @@
         local src="${1}/home"
         shift
 
-        test -d "${src}" || oops "stow source missing: ${src}"
-
         xstow -t "${HOME}" -d "${src}" "${@}"
     }
 
