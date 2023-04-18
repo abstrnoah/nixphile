@@ -34,7 +34,7 @@ solution:
   `pkg/home/me` to `$HOME` using Stow semantics.
 * Provide a simple Nix library to enable the user to obtain Nix derivations from
   directories in their dotfiles repository and declare dependencies between
-  them.
+  them. (TODO; fork from 'abstrnoah/dotfiles/lib.nix'.)
 
 To these ends, we aim to provide the following features:
 
@@ -170,10 +170,6 @@ nix-portable vim
 
 TODO: Minimal `flake.nix` example (namely, for people who don't want to use Nix
 for anything).
-
-# nix library
-
-Found in the `lib.nix` file; documentation forthcoming (TODO).
 
 # alternatives
 

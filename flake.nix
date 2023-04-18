@@ -1,6 +1,7 @@
 {
   description = "A simple Nix-centric dotfiles deployer.";
 
+  # TODO update
   inputs.nixpkgs.url =
     "github:abstrnoah/nixpkgs/37c045276cbedf0651305c564e7b696df12bc5fc";
 

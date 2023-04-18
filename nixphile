@@ -6,6 +6,8 @@
 # - Add -h|--help options to the executable.
 # - Finish README.
 # - Hash fetched assets if possible.
+# - Provide a nice way to handle secrets bootstrapping (namely, ssh-keygen).
+# - Overhaul stowing, namely to fix "mutable directories" issue.
 
 { # wrap to avoid execution if incompletely fetched
 
