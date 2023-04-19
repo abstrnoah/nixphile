@@ -8,6 +8,7 @@
 # - Hash fetched assets if possible.
 # - Provide a nice way to handle secrets bootstrapping (namely, ssh-keygen).
 # - Overhaul stowing, namely to fix "mutable directories" issue.
+# - Automate prehook? Somewhat reluctant because further degrades "uninstall".
 
 { # wrap to avoid execution if incompletely fetched
 
