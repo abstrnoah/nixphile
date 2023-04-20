@@ -1,9 +1,8 @@
 {
   description = "A simple Nix-centric dotfiles deployer.";
 
-  # TODO update
-  inputs.nixpkgs.url =
-    "github:abstrnoah/nixpkgs/37c045276cbedf0651305c564e7b696df12bc5fc";
+  # TODO Probably can remove nixpkgs entirely if I replicate concatTextFile.
+  inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-22.11";
 
   outputs =
     { self, nixpkgs }:
