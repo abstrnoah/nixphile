@@ -9,6 +9,7 @@
 # - Provide a nice way to handle secrets bootstrapping (namely, ssh-keygen).
 # - Overhaul stowing, namely to fix "mutable directories" issue.
 # - Automate prehook? Somewhat reluctant because further degrades "uninstall".
+# - Explicit "remove" command; omitting flake source just bootstraps nix.
 
 { # wrap to avoid execution if incompletely fetched
 
