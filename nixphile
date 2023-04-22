@@ -10,6 +10,9 @@
 # - Overhaul stowing, namely to fix "mutable directories" issue.
 # - Automate prehook? Somewhat reluctant because further degrades "uninstall".
 # - Explicit "remove" command; omitting flake source just bootstraps nix.
+# - Make more atomic, namely old env should not be unstowed until new one is
+#   completely built (dilemma: this means having to manually handle nix store gc
+#   roots).
 
 { # wrap to avoid execution if incompletely fetched
 
