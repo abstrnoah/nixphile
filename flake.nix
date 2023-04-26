@@ -7,7 +7,7 @@
   outputs =
     { self, nixpkgs }:
     let
-      supported_systems = [ "x86_64-linux" "armv7l-linux" ];
+      supported_systems = [ "x86_64-linux" "aarch64-linux" "armv7l-linux" ];
       gen_set = f: builtins.foldl' (a: h: a // { "${h}" = f h; }) {};
       for_all_systems = f: gen_set f supported_systems;
     in
